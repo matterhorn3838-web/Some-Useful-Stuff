@@ -3,150 +3,209 @@
     if (window.__TTRS_RUNNING__) return;
     window.__TTRS_RUNNING__ = true;
 
-    // ---------- STATE ----------
+    // ================= STATE =================
     let score = 0;
-    let target = 90;
     let timeLeft = 60;
     let running = false;
-    let timer = null;
+    let timerId = null;
 
     let currentQ = "", currentA = 0;
     let nextQ = "", nextA = 0;
 
-    // ---------- HELPERS ----------
-    function el(tag, parent, text) {
-        const e = document.createElement(tag);
-        if (text !== undefined) e.textContent = text;
-        parent.appendChild(e);
+    // ================= HELPERS =================
+    const el = (t, p, txt) => {
+        const e = document.createElement(t);
+        if (txt !== undefined) e.textContent = txt;
+        p.appendChild(e);
         return e;
-    }
+    };
 
-    function rand(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
+    const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 
-    function genQ() {
+    const genQ = () => {
         const a = rand(2, 12);
         const b = rand(2, 12);
         return Math.random() < 0.5
             ? [`${a} × ${b}`, a * b]
             : [`${a * b} ÷ ${a}`, b];
-    }
+    };
 
-    // ---------- ROOT ----------
+    // ================= ROOT =================
     const app = el("div", document.body);
-    app.style.position = "fixed";
-    app.style.top = "40px";
-    app.style.left = "40px";
-    app.style.width = "420px";
-    app.style.height = "520px";
-    app.style.zIndex = "2147483647";
-    app.style.background = "#f5f7fa";
-    app.style.border = "2px solid #9ca3af";
-    app.style.borderRadius = "12px";
-    app.style.display = "flex";
-    app.style.flexDirection = "column";
-    app.style.fontFamily = "Arial, sans-serif";
+    Object.assign(app.style, {
+        position: "fixed",
+        top: "40px",
+        left: "40px",
+        width: "460px",
+        height: "520px",
+        background: "#f5f7fa",
+        border: "2px solid #9ca3af",
+        borderRadius: "12px",
+        zIndex: "2147483647",
+        display: "flex",
+        fontFamily: "Arial, sans-serif"
+    });
 
-    // ---------- HEADER (DRAG HANDLE) ----------
-    const header = el("div", app, "TTRS Studio");
-    header.style.height = "40px";
-    header.style.background = "#2c3e50";
-    header.style.color = "#ffffff";
-    header.style.display = "flex";
-    header.style.alignItems = "center";
-    header.style.justifyContent = "center";
-    header.style.fontWeight = "bold";
-    header.style.cursor = "move";
-    header.style.borderTopLeftRadius = "10px";
-    header.style.borderTopRightRadius = "10px";
+    // ================= MAIN COLUMN =================
+    const main = el("div", app);
+    Object.assign(main.style, {
+        flex: "1",
+        display: "flex",
+        flexDirection: "column"
+    });
 
-    // ---------- DRAG LOGIC ----------
-    let dragging = false, dx = 0, dy = 0;
+    // ================= HEADER (DRAG) =================
+    const header = el("div", main, "TTRS Studio");
+    Object.assign(header.style, {
+        height: "40px",
+        background: "#2c3e50",
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: "bold",
+        cursor: "move",
+        borderTopLeftRadius: "10px"
+    });
 
+    // Drag logic
+    let drag = false, dx = 0, dy = 0;
     header.onmousedown = e => {
-        dragging = true;
+        drag = true;
         dx = e.clientX - app.offsetLeft;
         dy = e.clientY - app.offsetTop;
         document.onmousemove = e => {
-            if (!dragging) return;
+            if (!drag) return;
             app.style.left = Math.max(0, e.clientX - dx) + "px";
             app.style.top = Math.max(0, e.clientY - dy) + "px";
         };
         document.onmouseup = () => {
-            dragging = false;
+            drag = false;
             document.onmousemove = null;
         };
     };
 
-    // ---------- CONTENT ----------
-    const content = el("div", app);
-    content.style.flex = "1";
-    content.style.padding = "16px";
-    content.style.textAlign = "center";
-    content.style.color = "#1f2937";
+    // ================= CONTENT =================
+    const content = el("div", main);
+    Object.assign(content.style, {
+        flex: "1",
+        padding: "16px",
+        textAlign: "center",
+        color: "#1f2937"
+    });
 
     const timerLabel = el("div", content, "Time: 60s");
-    const progressLabel = el("div", content, "Progress: 0/90");
     timerLabel.style.fontSize = "16px";
 
+    const progressLabel = el("div", content, "Progress: 0");
+    progressLabel.style.marginBottom = "4px";
+
     const nextLabel = el("div", content, "");
-    nextLabel.style.marginTop = "6px";
-    nextLabel.style.color = "#6b7280";
+    Object.assign(nextLabel.style, {
+        color: "#6b7280",
+        marginBottom: "6px"
+    });
 
     const question = el("div", content, "Press Start");
-    question.style.fontSize = "32px";
-    question.style.fontWeight = "bold";
-    question.style.margin = "12px 0";
+    Object.assign(question.style, {
+        fontSize: "32px",
+        fontWeight: "bold",
+        margin: "10px 0"
+    });
 
     const input = el("input", content);
+    Object.assign(input.style, {
+        fontSize: "26px",
+        width: "140px",
+        textAlign: "center",
+        border: "2px solid #9ca3af",
+        borderRadius: "6px"
+    });
     input.disabled = true;
-    input.style.fontSize = "26px";
-    input.style.width = "120px";
-    input.style.textAlign = "center";
-    input.style.border = "2px solid #9ca3af";
-    input.style.borderRadius = "6px";
 
-    // ---------- KEYPAD ----------
+    input.addEventListener("keydown", e => {
+        if (e.key === "Enter" && running && input.value !== "") {
+            check();
+        }
+    });
+
+    // ================= KEYPAD =================
     const pad = el("div", content);
-    pad.style.display = "grid";
-    pad.style.gridTemplateColumns = "repeat(3, 1fr)";
-    pad.style.gap = "8px";
-    pad.style.marginTop = "14px";
+    Object.assign(pad.style, {
+        display: "grid",
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: "8px",
+        marginTop: "14px"
+    });
 
     ["7","8","9","4","5","6","1","2","3","0","Clear","Enter"].forEach(k => {
         const b = el("button", pad, k);
-        b.style.height = "44px";
-        b.style.background = "#e5e7eb";
-        b.style.border = "2px solid #9ca3af";
-        b.style.fontSize = "16px";
-        b.style.cursor = "pointer";
+        Object.assign(b.style, {
+            height: "44px",
+            background: "#e5e7eb",
+            border: "2px solid #9ca3af",
+            fontSize: "16px",
+            cursor: "pointer"
+        });
+
         b.onclick = () => {
             if (!running) return;
-            if (k === "Enter") check();
-            else if (k === "Clear") input.value = "";
-            else input.value += k;
+            if (k === "Enter") {
+                if (input.value !== "") check();
+            } else if (k === "Clear") {
+                input.value = "";
+            } else {
+                input.value += k;
+            }
         };
     });
 
     const status = el("div", content);
-    status.style.marginTop = "8px";
+    status.style.marginTop = "6px";
 
     const startBtn = el("button", content, "Start Game");
-    startBtn.style.marginTop = "12px";
-    startBtn.style.background = "#22c55e";
-    startBtn.style.color = "#ffffff";
-    startBtn.style.border = "none";
-    startBtn.style.fontSize = "18px";
-    startBtn.style.padding = "8px";
-    startBtn.style.borderRadius = "6px";
-    startBtn.style.cursor = "pointer";
+    Object.assign(startBtn.style, {
+        marginTop: "12px",
+        background: "#22c55e",
+        color: "#fff",
+        border: "none",
+        fontSize: "18px",
+        padding: "8px",
+        borderRadius: "6px",
+        cursor: "pointer"
+    });
 
-    // ---------- GAME LOGIC ----------
+    // ================= PROGRESS BAR =================
+    const barWrap = el("div", app);
+    Object.assign(barWrap.style, {
+        width: "24px",
+        margin: "40px 10px 16px 0",
+        background: "#e5e7eb",
+        border: "2px solid #9ca3af",
+        borderRadius: "6px",
+        position: "relative"
+    });
+
+    const barFill = el("div", barWrap);
+    Object.assign(barFill.style, {
+        position: "absolute",
+        bottom: "0",
+        left: "0",
+        width: "100%",
+        height: "0%",
+        background: "#22c55e",
+        borderRadius: "4px"
+    });
+
+    // ================= GAME LOGIC =================
     function updateUI() {
         question.textContent = currentQ;
         nextLabel.textContent = "Next: " + nextQ;
-        progressLabel.textContent = `Progress: ${score}/${target}`;
+        progressLabel.textContent = "Progress: " + score;
+
+        // TTRS-style visual bar (target ≈ 90 questions)
+        const percent = Math.min(score / 90, 1) * 100;
+        barFill.style.height = percent + "%";
     }
 
     function check() {
@@ -158,6 +217,7 @@
             status.textContent = "Wrong (" + currentA + ")";
             status.style.color = "#dc2626";
         }
+
         [currentQ, currentA] = [nextQ, nextA];
         [nextQ, nextA] = genQ();
         input.value = "";
@@ -166,7 +226,8 @@
 
     function tick() {
         timerLabel.textContent = "Time: " + timeLeft + "s";
-        if (--timeLeft < 0) end();
+        timeLeft--;
+        if (timeLeft < 0) end();
     }
 
     function start() {
@@ -177,22 +238,26 @@
         input.value = "";
         input.focus();
         startBtn.disabled = true;
+        status.textContent = "";
+        barFill.style.height = "0%";
 
         [currentQ, currentA] = genQ();
         [nextQ, nextA] = genQ();
         updateUI();
 
-        tick();
-        timer = setInterval(tick, 1000);
+        tick(); // immediate start (TTRS rule)
+        timerId = setInterval(tick, 1000);
     }
 
     function end() {
-        clearInterval(timer);
+        clearInterval(timerId);
         running = false;
         question.textContent = "Game Over";
         nextLabel.textContent = "";
-        startBtn.disabled = false;
         input.disabled = true;
+        startBtn.disabled = false;
+        status.textContent = `Final: ${score} (${(score / 60).toFixed(2)} q/s)`;
+        status.style.color = "#111827";
     }
 
     startBtn.onclick = start;
