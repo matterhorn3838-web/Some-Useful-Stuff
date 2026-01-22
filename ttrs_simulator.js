@@ -1,234 +1,200 @@
 (function () {
 
-    function startTTRS() {
+    if (window.__TTRS_RUNNING__) return;
+    window.__TTRS_RUNNING__ = true;
 
-        if (window.__TTRS_RUNNING__) return;
-        window.__TTRS_RUNNING__ = true;
+    // ---------- STATE ----------
+    let score = 0;
+    let target = 90;
+    let timeLeft = 60;
+    let running = false;
+    let timer = null;
 
-        // ---------- STATE ----------
-        var score = 0;
-        var target = 90;
-        var timeLeft = 60;
-        var running = false;
-        var timer = null;
+    let currentQ = "", currentA = 0;
+    let nextQ = "", nextA = 0;
 
-        var currentQ = "";
-        var currentA = 0;
-        var nextQ = "";
-        var nextA = 0;
-
-        // ---------- HELPERS ----------
-        function create(tag, parent, text) {
-            var e = document.createElement(tag);
-            if (text !== undefined) e.textContent = text;
-            parent.appendChild(e);
-            return e;
-        }
-
-        function rand(min, max) {
-            return Math.floor(Math.random() * (max - min + 1)) + min;
-        }
-
-        function generateQuestion() {
-            var a = rand(2, 12);
-            var b = rand(2, 12);
-            if (Math.random() < 0.5) {
-                return [a + " × " + b, a * b];
-            } else {
-                return [(a * b) + " ÷ " + a, b];
-            }
-        }
-
-        // ---------- ROOT ----------
-        var app = create("div", document.body);
-        app.id = "ttrs-app";
-        app.style.position = "fixed";
-        app.style.top = "20px";
-        app.style.left = "20px";
-        app.style.zIndex = "2147483647";
-        app.style.width = "600px";
-        app.style.height = "600px";
-        app.style.display = "flex";
-        app.style.background = "#ffffff";
-        app.style.border = "2px solid #000";
-        app.style.borderRadius = "10px";
-        app.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)";
-        app.style.fontFamily = "Arial, sans-serif";
-        app.style.color = "#000";
-
-        // ---------- MAIN ----------
-        var main = create("div", app);
-        main.style.flex = "1";
-        main.style.padding = "20px";
-        main.style.textAlign = "center";
-        main.style.color = "#000";
-
-        // ---------- PROGRESS BAR ----------
-        var bar = create("div", app);
-        bar.style.width = "30px";
-        bar.style.margin = "20px";
-        bar.style.background = "#ddd";
-        bar.style.border = "1px solid #000";
-        bar.style.borderRadius = "6px";
-        bar.style.display = "flex";
-        bar.style.alignItems = "flex-end";
-
-        var fill = create("div", bar);
-        fill.style.width = "100%";
-        fill.style.height = "0%";
-        fill.style.background = "#4CAF50";
-
-        // ---------- LABELS ----------
-        var timerLabel = create("div", main, "Time: 60s");
-        timerLabel.style.fontSize = "18px";
-        timerLabel.style.color = "#000";
-
-        var progressLabel = create("div", main, "Progress: 0/90");
-        progressLabel.style.fontSize = "14px";
-        progressLabel.style.color = "#000";
-
-        var nextLabel = create("div", main, "");
-        nextLabel.style.marginTop = "10px";
-        nextLabel.style.fontSize = "16px";
-        nextLabel.style.color = "#555";
-
-        var questionLabel = create("div", main, "Press Start!");
-        questionLabel.style.fontSize = "32px";
-        questionLabel.style.fontWeight = "bold";
-        questionLabel.style.margin = "15px 0";
-        questionLabel.style.color = "#000";
-
-        // ---------- INPUT ----------
-        var input = create("input", main);
-        input.id = "ttrs-answer";
-        input.name = "answer";
-        input.disabled = true;
-        input.style.fontSize = "26px";
-        input.style.textAlign = "center";
-        input.style.width = "140px";
-        input.style.color = "#000";
-        input.style.background = "#fff";
-        input.style.border = "2px solid #000";
-        input.style.marginTop = "5px";
-
-        input.onkeydown = function (e) {
-            if (e.key === "Enter") check();
-        };
-
-        // ---------- KEYPAD ----------
-        var keypad = create("div", main);
-        keypad.style.display = "grid";
-        keypad.style.gridTemplateColumns = "repeat(3, 80px)";
-        keypad.style.gap = "8px";
-        keypad.style.justifyContent = "center";
-        keypad.style.marginTop = "15px";
-
-        var keys = ["7","8","9","4","5","6","1","2","3","0","Clear","Enter"];
-        for (var i = 0; i < keys.length; i++) {
-            (function (k) {
-                var b = create("button", keypad, k);
-                b.style.height = "50px";
-                b.style.fontWeight = "bold";
-                b.style.fontSize = "16px";
-                b.style.color = "#000";
-                b.style.background = "#f0f0f0";
-                b.style.border = "2px solid #000";
-                b.style.cursor = "pointer";
-                b.onclick = function () {
-                    if (!running) return;
-                    if (k === "Enter") check();
-                    else if (k === "Clear") input.value = "";
-                    else input.value += k;
-                };
-            })(keys[i]);
-        }
-
-        // ---------- STATUS ----------
-        var status = create("div", main);
-        status.style.marginTop = "10px";
-        status.style.fontSize = "14px";
-        status.style.color = "#000";
-
-        // ---------- START BUTTON ----------
-        var startBtn = create("button", main, "Start Game");
-        startBtn.style.marginTop = "15px";
-        startBtn.style.fontSize = "18px";
-        startBtn.style.background = "#4CAF50";
-        startBtn.style.color = "#fff";
-        startBtn.style.border = "2px solid #000";
-        startBtn.style.padding = "10px";
-        startBtn.style.cursor = "pointer";
-
-        // ---------- GAME LOGIC ----------
-        function updateUI() {
-            questionLabel.textContent = currentQ;
-            nextLabel.textContent = "Next: " + nextQ;
-            progressLabel.textContent = "Progress: " + score + "/" + target;
-            fill.style.height = (score / target * 100) + "%";
-        }
-
-        function check() {
-            if (!input.value) return;
-
-            if (parseInt(input.value, 10) === currentA) {
-                score++;
-                status.textContent = "Correct!";
-                status.style.color = "green";
-            } else {
-                status.textContent = "Wrong! (" + currentA + ")";
-                status.style.color = "red";
-            }
-
-            currentQ = nextQ;
-            currentA = nextA;
-            var q = generateQuestion();
-            nextQ = q[0];
-            nextA = q[1];
-
-            input.value = "";
-            updateUI();
-        }
-
-        function tick() {
-            timerLabel.textContent = "Time: " + timeLeft + "s";
-            timeLeft--;
-            if (timeLeft < 0) endGame();
-        }
-
-        function startGame() {
-            running = true;
-            score = 0;
-            timeLeft = 60;
-            input.disabled = false;
-            input.focus();
-            startBtn.disabled = true;
-            status.textContent = "";
-
-            var q1 = generateQuestion();
-            var q2 = generateQuestion();
-            currentQ = q1[0];
-            currentA = q1[1];
-            nextQ = q2[0];
-            nextA = q2[1];
-
-            updateUI();
-            tick();
-            timer = setInterval(tick, 1000);
-        }
-
-        function endGame() {
-            running = false;
-            clearInterval(timer);
-            questionLabel.textContent = "Game Over!";
-            nextLabel.textContent = "";
-            input.disabled = true;
-            startBtn.disabled = false;
-        }
-
-        startBtn.onclick = startGame;
+    // ---------- HELPERS ----------
+    function el(tag, parent, text) {
+        const e = document.createElement(tag);
+        if (text !== undefined) e.textContent = text;
+        parent.appendChild(e);
+        return e;
     }
 
-    if (document.body) startTTRS();
-    else window.addEventListener("load", startTTRS);
+    function rand(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function genQ() {
+        const a = rand(2, 12);
+        const b = rand(2, 12);
+        return Math.random() < 0.5
+            ? [`${a} × ${b}`, a * b]
+            : [`${a * b} ÷ ${a}`, b];
+    }
+
+    // ---------- ROOT ----------
+    const app = el("div", document.body);
+    app.style.position = "fixed";
+    app.style.top = "40px";
+    app.style.left = "40px";
+    app.style.width = "420px";
+    app.style.height = "520px";
+    app.style.zIndex = "2147483647";
+    app.style.background = "#f5f7fa";
+    app.style.border = "2px solid #9ca3af";
+    app.style.borderRadius = "12px";
+    app.style.display = "flex";
+    app.style.flexDirection = "column";
+    app.style.fontFamily = "Arial, sans-serif";
+
+    // ---------- HEADER (DRAG HANDLE) ----------
+    const header = el("div", app, "TTRS Studio");
+    header.style.height = "40px";
+    header.style.background = "#2c3e50";
+    header.style.color = "#ffffff";
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.justifyContent = "center";
+    header.style.fontWeight = "bold";
+    header.style.cursor = "move";
+    header.style.borderTopLeftRadius = "10px";
+    header.style.borderTopRightRadius = "10px";
+
+    // ---------- DRAG LOGIC ----------
+    let dragging = false, dx = 0, dy = 0;
+
+    header.onmousedown = e => {
+        dragging = true;
+        dx = e.clientX - app.offsetLeft;
+        dy = e.clientY - app.offsetTop;
+        document.onmousemove = e => {
+            if (!dragging) return;
+            app.style.left = Math.max(0, e.clientX - dx) + "px";
+            app.style.top = Math.max(0, e.clientY - dy) + "px";
+        };
+        document.onmouseup = () => {
+            dragging = false;
+            document.onmousemove = null;
+        };
+    };
+
+    // ---------- CONTENT ----------
+    const content = el("div", app);
+    content.style.flex = "1";
+    content.style.padding = "16px";
+    content.style.textAlign = "center";
+    content.style.color = "#1f2937";
+
+    const timerLabel = el("div", content, "Time: 60s");
+    const progressLabel = el("div", content, "Progress: 0/90");
+    timerLabel.style.fontSize = "16px";
+
+    const nextLabel = el("div", content, "");
+    nextLabel.style.marginTop = "6px";
+    nextLabel.style.color = "#6b7280";
+
+    const question = el("div", content, "Press Start");
+    question.style.fontSize = "32px";
+    question.style.fontWeight = "bold";
+    question.style.margin = "12px 0";
+
+    const input = el("input", content);
+    input.disabled = true;
+    input.style.fontSize = "26px";
+    input.style.width = "120px";
+    input.style.textAlign = "center";
+    input.style.border = "2px solid #9ca3af";
+    input.style.borderRadius = "6px";
+
+    // ---------- KEYPAD ----------
+    const pad = el("div", content);
+    pad.style.display = "grid";
+    pad.style.gridTemplateColumns = "repeat(3, 1fr)";
+    pad.style.gap = "8px";
+    pad.style.marginTop = "14px";
+
+    ["7","8","9","4","5","6","1","2","3","0","Clear","Enter"].forEach(k => {
+        const b = el("button", pad, k);
+        b.style.height = "44px";
+        b.style.background = "#e5e7eb";
+        b.style.border = "2px solid #9ca3af";
+        b.style.fontSize = "16px";
+        b.style.cursor = "pointer";
+        b.onclick = () => {
+            if (!running) return;
+            if (k === "Enter") check();
+            else if (k === "Clear") input.value = "";
+            else input.value += k;
+        };
+    });
+
+    const status = el("div", content);
+    status.style.marginTop = "8px";
+
+    const startBtn = el("button", content, "Start Game");
+    startBtn.style.marginTop = "12px";
+    startBtn.style.background = "#22c55e";
+    startBtn.style.color = "#ffffff";
+    startBtn.style.border = "none";
+    startBtn.style.fontSize = "18px";
+    startBtn.style.padding = "8px";
+    startBtn.style.borderRadius = "6px";
+    startBtn.style.cursor = "pointer";
+
+    // ---------- GAME LOGIC ----------
+    function updateUI() {
+        question.textContent = currentQ;
+        nextLabel.textContent = "Next: " + nextQ;
+        progressLabel.textContent = `Progress: ${score}/${target}`;
+    }
+
+    function check() {
+        if (parseInt(input.value) === currentA) {
+            score++;
+            status.textContent = "Correct";
+            status.style.color = "#16a34a";
+        } else {
+            status.textContent = "Wrong (" + currentA + ")";
+            status.style.color = "#dc2626";
+        }
+        [currentQ, currentA] = [nextQ, nextA];
+        [nextQ, nextA] = genQ();
+        input.value = "";
+        updateUI();
+    }
+
+    function tick() {
+        timerLabel.textContent = "Time: " + timeLeft + "s";
+        if (--timeLeft < 0) end();
+    }
+
+    function start() {
+        running = true;
+        score = 0;
+        timeLeft = 60;
+        input.disabled = false;
+        input.value = "";
+        input.focus();
+        startBtn.disabled = true;
+
+        [currentQ, currentA] = genQ();
+        [nextQ, nextA] = genQ();
+        updateUI();
+
+        tick();
+        timer = setInterval(tick, 1000);
+    }
+
+    function end() {
+        clearInterval(timer);
+        running = false;
+        question.textContent = "Game Over";
+        nextLabel.textContent = "";
+        startBtn.disabled = false;
+        input.disabled = true;
+    }
+
+    startBtn.onclick = start;
 
 })();
