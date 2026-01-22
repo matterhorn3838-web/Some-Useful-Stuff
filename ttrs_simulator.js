@@ -84,6 +84,8 @@ questionLabel.style.margin = "15px 0";
 
 // ----- INPUT -----
 var input = create("input", main);
+input.id = "answerInput";
+input.name = "answer";
 input.disabled = true;
 input.style.fontSize = "26px";
 input.style.textAlign = "center";
