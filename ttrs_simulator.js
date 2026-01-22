@@ -1,192 +1,203 @@
-(() => {
-    // ---------- STATE ----------
-    let score = 0;
-    let target = 90;
-    let timeLeft = 60;
-    let running = false;
-    let timer;
+// ===== CLEAN CONSOLE SAFE VERSION =====
 
-    let currentQ, currentA;
-    let nextQ, nextA;
+// ----- STATE -----
+var score = 0;
+var target = 90;
+var timeLeft = 60;
+var running = false;
+var timer = null;
 
-    // ---------- HELPERS ----------
-    const el = (tag, parent, text = "") => {
-        const e = document.createElement(tag);
-        if (text) e.textContent = text;
-        parent.appendChild(e);
-        return e;
-    };
+var currentQ = "";
+var currentA = 0;
+var nextQ = "";
+var nextA = 0;
 
-    const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+// ----- HELPERS -----
+function create(tag, parent, text) {
+    var e = document.createElement(tag);
+    if (text) e.textContent = text;
+    parent.appendChild(e);
+    return e;
+}
 
-    const generateQuestion = () => {
-        const a = rand(2, 12);
-        const b = rand(2, 12);
-        if (Math.random() < 0.5) {
-            return [`${a} × ${b}`, a * b];
-        } else {
-            return [`${a * b} ÷ ${a}`, b];
-        }
-    };
+function rand(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
-    // ---------- WINDOW ----------
-    const app = el("div", document.body);
-    Object.assign(app.style, {
-        width: "600px",
-        height: "600px",
-        margin: "40px auto",
-        display: "flex",
-        background: "white",
-        borderRadius: "10px",
-        boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-        fontFamily: "Arial"
-    });
+function generateQuestion() {
+    var a = rand(2, 12);
+    var b = rand(2, 12);
+    if (Math.random() < 0.5) {
+        return [a + " × " + b, a * b];
+    } else {
+        return [(a * b) + " ÷ " + a, b];
+    }
+}
 
-    const main = el("div", app);
-    main.style.flex = "1";
-    main.style.padding = "20px";
-    main.style.textAlign = "center";
+// ----- UI ROOT -----
+var app = create("div", document.body);
+app.style.width = "600px";
+app.style.height = "600px";
+app.style.margin = "40px auto";
+app.style.display = "flex";
+app.style.background = "white";
+app.style.borderRadius = "10px";
+app.style.boxShadow = "0 10px 30px rgba(0,0,0,0.3)";
+app.style.fontFamily = "Arial";
 
-    const side = el("div", app);
-    Object.assign(side.style, {
-        width: "30px",
-        margin: "20px",
-        background: "#ddd",
-        borderRadius: "6px",
-        display: "flex",
-        alignItems: "flex-end"
-    });
+// ----- MAIN -----
+var main = create("div", app);
+main.style.flex = "1";
+main.style.padding = "20px";
+main.style.textAlign = "center";
 
-    const progressFill = el("div", side);
-    Object.assign(progressFill.style, {
-        width: "100%",
-        height: "0%",
-        background: "#4CAF50",
-        borderRadius: "6px",
-        transition: "height 0.2s"
-    });
+// ----- PROGRESS BAR -----
+var bar = create("div", app);
+bar.style.width = "30px";
+bar.style.margin = "20px";
+bar.style.background = "#ddd";
+bar.style.borderRadius = "6px";
+bar.style.display = "flex";
+bar.style.alignItems = "flex-end";
 
-    const timerLabel = el("div", main, "Time: 60s");
-    timerLabel.style.fontSize = "18px";
+var fill = create("div", bar);
+fill.style.width = "100%";
+fill.style.height = "0%";
+fill.style.background = "#4CAF50";
+fill.style.borderRadius = "6px";
 
-    const progressLabel = el("div", main, "Progress: 0/90");
-    progressLabel.style.fontSize = "14px";
+// ----- LABELS -----
+var timerLabel = create("div", main, "Time: 60s");
+timerLabel.style.fontSize = "18px";
 
-    const nextLabel = el("div", main);
-    nextLabel.style.color = "gray";
-    nextLabel.style.marginTop = "10px";
+var progressLabel = create("div", main, "Progress: 0/90");
+progressLabel.style.fontSize = "14px";
 
-    const questionLabel = el("div", main, "Press Start!");
-    questionLabel.style.fontSize = "32px";
-    questionLabel.style.fontWeight = "bold";
-    questionLabel.style.margin = "15px 0";
+var nextLabel = create("div", main, "");
+nextLabel.style.color = "gray";
+nextLabel.style.marginTop = "10px";
 
-    const input = el("input", main);
-    input.disabled = true;
-    Object.assign(input.style, {
-        fontSize: "26px",
-        textAlign: "center",
-        width: "140px"
-    });
+var questionLabel = create("div", main, "Press Start!");
+questionLabel.style.fontSize = "32px";
+questionLabel.style.fontWeight = "bold";
+questionLabel.style.margin = "15px 0";
 
-    const keypad = el("div", main);
-    Object.assign(keypad.style, {
-        display: "grid",
-        gridTemplateColumns: "repeat(3, 80px)",
-        gap: "8px",
-        justifyContent: "center",
-        marginTop: "15px"
-    });
+// ----- INPUT -----
+var input = create("input", main);
+input.disabled = true;
+input.style.fontSize = "26px";
+input.style.textAlign = "center";
+input.style.width = "140px";
 
-    const status = el("div", main);
-    status.style.marginTop = "10px";
+// ----- KEYPAD -----
+var keypad = create("div", main);
+keypad.style.display = "grid";
+keypad.style.gridTemplateColumns = "repeat(3, 80px)";
+keypad.style.gap = "8px";
+keypad.style.justifyContent = "center";
+keypad.style.marginTop = "15px";
 
-    const startBtn = el("button", main, "Start Game");
-    Object.assign(startBtn.style, {
-        marginTop: "15px",
-        fontSize: "18px",
-        background: "#4CAF50",
-        color: "white",
-        border: "none",
-        padding: "10px",
-        borderRadius: "6px",
-        cursor: "pointer"
-    });
-
-    // ---------- KEYPAD ----------
-    ["7","8","9","4","5","6","1","2","3","0","Clear","Enter"].forEach(k => {
-        const b = el("button", keypad, k);
+var keys = ["7","8","9","4","5","6","1","2","3","0","Clear","Enter"];
+for (var i = 0; i < keys.length; i++) {
+    (function(k){
+        var b = create("button", keypad, k);
         b.style.height = "50px";
         b.style.fontWeight = "bold";
-        b.onclick = () => {
+        b.onclick = function () {
             if (!running) return;
             if (k === "Enter") check();
             else if (k === "Clear") input.value = "";
             else input.value += k;
         };
-    });
+    })(keys[i]);
+}
 
-    // ---------- GAME ----------
-    const updateUI = () => {
-        questionLabel.textContent = currentQ;
-        nextLabel.textContent = "Next: " + nextQ;
-        progressLabel.textContent = `Progress: ${score}/${target}`;
-        progressFill.style.height = `${(score / target) * 100}%`;
-    };
+// ----- STATUS -----
+var status = create("div", main);
+status.style.marginTop = "10px";
 
-    const check = () => {
-        if (!input.value) return;
-        if (+input.value === currentA) {
-            score++;
-            status.textContent = "Correct!";
-            status.style.color = "green";
-        } else {
-            status.textContent = `Wrong! (${currentA})`;
-            status.style.color = "red";
-        }
+// ----- START BUTTON -----
+var startBtn = create("button", main, "Start Game");
+startBtn.style.marginTop = "15px";
+startBtn.style.fontSize = "18px";
+startBtn.style.background = "#4CAF50";
+startBtn.style.color = "white";
+startBtn.style.border = "none";
+startBtn.style.padding = "10px";
+startBtn.style.borderRadius = "6px";
+startBtn.style.cursor = "pointer";
 
-        if (score >= target) return end();
+// ----- GAME LOGIC -----
+function updateUI() {
+    questionLabel.textContent = currentQ;
+    nextLabel.textContent = "Next: " + nextQ;
+    progressLabel.textContent = "Progress: " + score + "/" + target;
+    fill.style.height = (score / target * 100) + "%";
+}
 
-        currentQ = nextQ;
-        currentA = nextA;
-        [nextQ, nextA] = generateQuestion();
+function check() {
+    if (!input.value) return;
+    if (parseInt(input.value) === currentA) {
+        score++;
+        status.textContent = "Correct!";
+        status.style.color = "green";
+    } else {
+        status.textContent = "Wrong! (" + currentA + ")";
+        status.style.color = "red";
+    }
 
-        input.value = "";
-        updateUI();
-    };
+    if (score >= target) {
+        endGame();
+        return;
+    }
 
-    const tick = () => {
-        timerLabel.textContent = `Time: ${timeLeft}s`;
-        if (timeLeft-- <= 0) end();
-    };
+    currentQ = nextQ;
+    currentA = nextA;
+    var q = generateQuestion();
+    nextQ = q[0];
+    nextA = q[1];
 
-    const start = () => {
-        running = true;
-        score = 0;
-        timeLeft = 60;
-        input.disabled = false;
-        input.focus();
-        startBtn.disabled = true;
-        status.textContent = "";
+    input.value = "";
+    updateUI();
+}
 
-        [currentQ, currentA] = generateQuestion();
-        [nextQ, nextA] = generateQuestion();
+function tick() {
+    timerLabel.textContent = "Time: " + timeLeft + "s";
+    timeLeft--;
+    if (timeLeft < 0) endGame();
+}
 
-        updateUI();
-        tick();
-        timer = setInterval(tick, 1000);
-    };
+function startGame() {
+    if (running) return;
+    running = true;
+    score = 0;
+    timeLeft = 60;
+    input.disabled = false;
+    input.focus();
+    startBtn.disabled = true;
+    status.textContent = "";
 
-    const end = () => {
-        running = false;
-        clearInterval(timer);
-        questionLabel.textContent = "Game Over!";
-        nextLabel.textContent = "";
-        input.disabled = true;
-        startBtn.disabled = false;
-        status.textContent = `Final: ${score} (${score ? (60/score).toFixed(2) : 0}s/q)`;
-        status.style.fontWeight = "bold";
-    };
+    var q1 = generateQuestion();
+    var q2 = generateQuestion();
+    currentQ = q1[0];
+    currentA = q1[1];
+    nextQ = q2[0];
+    nextA = q2[1];
 
-    startBtn.onclick = start;
-})();
+    updateUI();
+    tick();
+    timer = setInterval(tick, 1000);
+}
+
+function endGame() {
+    running = false;
+    clearInterval(timer);
+    questionLabel.textContent = "Game Over!";
+    nextLabel.textContent = "";
+    input.disabled = true;
+    startBtn.disabled = false;
+    status.textContent = "Final: " + score + " (" + (score ? (60/score).toFixed(2) : 0) + "s/q)";
+    status.style.fontWeight = "bold";
+}
+
+startBtn.onclick = startGame;
